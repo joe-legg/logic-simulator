@@ -1,1 +1,6 @@
-- [ ] create the logic simulator.
+- [ ] presentation.
+- [ ] game.
+- [ ] user input.
+- [ ] display tree.
+- [ ] traverse tree to evaluate circuit.
+- [x] create basic logic simulator.
