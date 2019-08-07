@@ -24,7 +24,7 @@ int main()
 #include <termbox.h>
 #include <math.h>
 
-void draw_text(char *txt, int x, int y, uint32_t fg, uint32_t bg)
+void draw_text(const char *txt, int x, int y, uint32_t fg, uint32_t bg)
 {
     for (int i = 0; txt[i] != '\0'; i++) {
         if (txt[i] == '\n') { // Handle new lines

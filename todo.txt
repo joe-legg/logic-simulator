@@ -5,3 +5,8 @@
 - [x] display circuit.
 - [x] traverse tree to evaluate circuit.
 - [x] create basic logic simulator.
+
+Other:
+- [ ] sub-circuits.
+- [ ] compile to verilog.
+- [ ] connect wires to other wires.
