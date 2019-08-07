@@ -35,7 +35,8 @@ const char help[] = "\033[1;96mHelp\033[39;49m\n\n"
                     "q                   Quit the simulator.\n"
                     "a                   Place a new gate.\n"
                     "w                   Place a new wire.\n"
-                    "m                   Move gate or wire under cursor.\n\n";
+                    "d                   Delete component.\n"
+                    "m                   Move component under cursor.\n\n";
 
 bool running = true;
 
@@ -208,7 +209,7 @@ void handle_cursor_input(const struct tb_event *event)
     }
 }
 
-void move_component()
+void move_component_at_cursor()
 {
     struct tb_event event;
     Gate *gate_to_move = get_gate_under_cursor();
@@ -277,6 +278,39 @@ void move_component()
     }
 }
 
+void place_gate_at_cursor()
+{
+    struct tb_event event;
+
+    // Display the options
+    draw_text("Select the gate to place.\n0. None\n1. AND\n2. OR\n3. XOR\n4. NOT",
+              0, tb_height() - 6, TB_WHITE, TB_DEFAULT);
+    tb_present();
+    tb_poll_event(&event);
+
+    if (event.ch < '0' || event.ch > '4') {
+        draw_text("Invalid selection!", 0, tb_height() - 1,
+                  TB_RED, TB_DEFAULT);
+        tb_present();
+        tb_poll_event(&event);
+    }
+
+    switch (event.ch) {
+    case '1':
+        new_gate(2, AND, cursor_x, cursor_y);
+        break;
+    case '2':
+        new_gate(2, OR, cursor_x, cursor_y);
+        break;
+    case '3':
+        new_gate(2, XOR, cursor_x, cursor_y);
+        break;
+    case '4':
+        new_gate(1, NOT, cursor_x, cursor_y);
+        break;
+    }
+}
+
 void handle_input()
 {
     struct tb_event event;
@@ -292,40 +326,29 @@ void handle_input()
         if (event.ch == 'y' || event.ch == 'Y')
             running = false;
     } else if (event.ch == '?') { // Help
-        draw_line(0, tb_height() - 11, tb_width(), tb_height() - 11, '_',
+        draw_line(0, tb_height() - 12, tb_width(), tb_height() - 12, '_',
                   TB_WHITE, TB_DEFAULT);
-        draw_text(help, 0, tb_height() - 10, TB_WHITE, TB_DEFAULT);
+        draw_text(help, 0, tb_height() - 11, TB_WHITE, TB_DEFAULT);
         tb_present();
         tb_poll_event(&event);
-    } else if (event.ch == 'm' || event.ch == 'M') { // Move gate
-        move_component();
+    } else if (event.ch == 'd' || event.ch == 'D') { // Delete gate
+        Gate *gate_to_delete = get_gate_under_cursor();
+
+        if (gate_to_delete != NULL) {
+            gate_list_len--;
+            free(gate_to_delete);
+        } else {
+            Wire *wire_to_delete = get_wire_under_cursor();
+
+            if (wire_to_delete != NULL) {
+                wire_list_len--;
+                free(wire_to_delete);
+            }
+        }
+    } else if (event.ch == 'm' || event.ch == 'M') { // Move component
+        move_component_at_cursor();
     } else if (event.ch == 'a' || event.ch == 'A') { // Place gate
-        draw_text("Select the gate to place.\n0. None\n1. AND\n2. OR\n3. XOR\n4. NOT",
-                  0, tb_height() - 6, TB_WHITE, TB_DEFAULT);
-        tb_present();
-        tb_poll_event(&event);
-
-        if (event.ch < '0' || event.ch > '4') {
-            draw_text("Invalid selection!", 0, tb_height() - 1,
-                      TB_RED, TB_DEFAULT);
-            tb_present();
-            tb_poll_event(&event);
-        }
-
-        switch (event.ch) {
-        case '1':
-            new_gate(2, AND, cursor_x, cursor_y);
-            break;
-        case '2':
-            new_gate(2, OR, cursor_x, cursor_y);
-            break;
-        case '3':
-            new_gate(2, XOR, cursor_x, cursor_y);
-            break;
-        case '4':
-            new_gate(1, NOT, cursor_x, cursor_y);
-            break;
-        }
+        place_gate_at_cursor();
     } else if (event.ch == 'w' || event.ch == 'W') { // Place wire
         Wire *wire = new_wire(cursor_x, cursor_y, 0, 0);
 
