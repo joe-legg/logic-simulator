@@ -51,17 +51,22 @@ void draw_line(int x0, int y0, int x1, int y1, char ch,
     int y = y0;
     int temp = 2 * dy - dx;
 
-    while(x < x1) {
-        if(temp < 0) {
-            temp = temp + 2 * dy;
-        } else {
-            y = y + 1;
-            temp = temp + 2 * dy - 2 * dx;
+    if (dx == 0) {
+        for (int i = 0; i < dy; i++)
+            tb_change_cell(x, i + y0, ch, fg, bg);
+    } else {
+        while (x < x1) {
+            if (temp < 0) {
+                temp = temp + 2 * dy;
+            } else {
+                y = y + 1;
+                temp = temp + 2 * dy - 2 * dx;
+            }
+
+            tb_change_cell(x, y, ch, fg, bg);
+
+            x++;
         }
-        
-        tb_change_cell(x, y, ch, fg, bg);
-        
-        x++;
     }
 }
 

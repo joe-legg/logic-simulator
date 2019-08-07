@@ -20,10 +20,18 @@ typedef struct Gate {
     int x, y;
 } Gate;
 
+typedef struct Wire {
+    int x0, y0;
+    int x1, y1;
+} Wire;
+
 // Global variables
 
 Gate **gate_list; // WARNING: this might need to be removed TODO
 int gate_list_len;
+
+Wire **wire_list;
+int wire_list_len;
 
 // Functions
 
@@ -35,12 +43,24 @@ Gate *new_gate(int num_of_inputs, int type)
 
     // Add gate to list
     gate_list = realloc(gate_list, ++gate_list_len * sizeof(Gate *));
-    gate_list[gate_list_len] = gate;
-    
+    gate_list[gate_list_len - 1] = gate;
+
     gate->type = type; // Set type
     gate->out.index = -1;
 
     return gate;
+}
+
+Wire *new_wire(int x0, int y0, int x1, int y1)
+{
+    Wire *wire = malloc(sizeof(Wire *));
+    wire->x0 = x0;
+    wire->y0 = y0;
+    wire->x1 = x1;
+    wire->y1 = y1;
+    wire_list = realloc(wire_list, ++wire_list_len * sizeof(Wire *));
+    wire_list[wire_list_len - 1] = wire;
+    return wire;
 }
 
 // Simulation
@@ -79,6 +99,11 @@ void update_circuit_from_top(Gate *top_level_gate)
         update_circuit_from_top(top_level_gate->out.next_gate);
 }
 
+void draw_wire(const Wire *wire)
+{
+    draw_line(wire->x0, wire->y0, wire->x1, wire->y1, '-', TB_RED, TB_DEFAULT);
+}
+
 char *get_gate_ascii(const Gate *gate)
 {
     switch (gate->type) {
@@ -91,9 +116,9 @@ char *get_gate_ascii(const Gate *gate)
                "  # Or #-\n"
                "-######";
     case NOT:
-        return " #####\n"
+        return " #######\n"
                "-# Not #*-\n"
-               " #####";
+               " #######";
     case XOR:
         return "-# #######\n"
                "  # # Xor #-\n"
@@ -101,18 +126,16 @@ char *get_gate_ascii(const Gate *gate)
     }   
 }
 
-void draw_circuit(Gate *top_level_gate)
+void draw_circuit()
 {
-    tb_clear();
-    draw_text(get_gate_ascii(top_level_gate), top_level_gate->x, top_level_gate->y,
-              TB_GREEN, TB_DEFAULT);
+    for (int i = 0; i < gate_list_len; i++) {
+        draw_text(get_gate_ascii(gate_list[i]), gate_list[i]->x, gate_list[i]->y,
+                  TB_GREEN, TB_DEFAULT);
+    }
+    for (int i = 0; i < wire_list_len; i++) {
+        draw_wire(wire_list[i]);
+    }
     tb_present();
-
-    struct tb_event ev;
-    tb_poll_event(&ev);
-
-    if (!(top_level_gate->out.index < 0))
-        draw_circuit(top_level_gate->out.next_gate);
 }
 
 int main()
@@ -134,6 +157,14 @@ int main()
 
     // Evaluate circuit
     update_circuit_from_top(not2);
+
+    // Set gate positions
+    xor->x = 13;
+    not->x = 28;
+
+    // Create wires
+    Wire *w1 = new_wire(10, 1, 12, 1);
+    Wire *w2 = new_wire(12, 1, 12, 3); // Not working
 
     // Graphics
     if (tb_init()) { // Initialize termbox

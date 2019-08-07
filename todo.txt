@@ -4,3 +4,12 @@
 - [ ] display tree.
 - [x] traverse tree to evaluate circuit.
 - [x] create basic logic simulator.
+
+
+A-----
+     |---b
+
+Method 1:
+add wire object that the player can place. --
+Method 2:
+workout the wire automaticaly.
