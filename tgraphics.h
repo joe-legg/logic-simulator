@@ -46,11 +46,24 @@ void draw_rect(int x, int y, int width, int height,
 void draw_line(int x0, int y0, int x1, int y1, char ch,
                   uint32_t fg, uint32_t bg)
 {
+    int temp;
+    if (x1 < x0) {
+        temp = x0;
+        x0 = x1;
+        x1 = temp;
+    }
+
+    if (y1 < y0) {
+        temp = y0;
+        y0 = y1;
+        y1 = temp;
+    }
+        
     int dx = x1 - x0;
     int dy = y1 - y0;
     int x = x0;
     int y = y0;
-    int temp = 2 * dy - dx;
+    temp = 2 * dy - dx;
 
     if (dx == 0) {
         for (int i = 0; i < dy; i++)

@@ -1,6 +1,7 @@
 - [ ] presentation.
 - [ ] game.
-- [ ] user input.
+- [ ] fix wire drawing.
+- [x] user input.
 - [x] display circuit.
 - [x] traverse tree to evaluate circuit.
 - [x] create basic logic simulator.

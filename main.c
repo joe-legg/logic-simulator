@@ -110,7 +110,7 @@ void update_circuit_from_top(Gate *top_level_gate)
 
 void draw_wire(const Wire *wire)
 {
-    draw_line(wire->x0, wire->y0, wire->x0, wire->y1, '-', TB_RED|TB_BOLD, TB_DEFAULT);
+    draw_line(wire->x0, wire->y0 + 1, wire->x0, wire->y1 + 1, '-', TB_RED|TB_BOLD, TB_DEFAULT);
     draw_line(wire->x0, wire->y1, wire->x1, wire->y1, '-', TB_RED|TB_BOLD, TB_DEFAULT);
 }
 
