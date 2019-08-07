@@ -27,6 +27,10 @@ typedef struct Wire {
 
 // Global variables
 
+bool running = true;
+
+int cursor_y, cursor_x;
+
 Gate **gate_list;
 int gate_list_len;
 
@@ -35,7 +39,7 @@ int wire_list_len;
 
 // Functions
 
-Gate *new_gate(int num_of_inputs, int type)
+Gate *new_gate(int num_of_inputs, int type, int x, int y)
 {
     // Allocate memory
     Gate *gate = malloc(sizeof(Gate *));
@@ -47,6 +51,9 @@ Gate *new_gate(int num_of_inputs, int type)
 
     gate->type = type; // Set type
     gate->out.index = -1;
+
+    gate->x = x;
+    gate->y = y;
 
     return gate;
 }
@@ -81,6 +88,8 @@ bool sim_gate(const Gate *gate)
         return sim_not(gate);
     case XOR:
         return sim_xor(gate);
+    case CUSTOM:
+        break;
     }
 }
 
@@ -101,7 +110,8 @@ void update_circuit_from_top(Gate *top_level_gate)
 
 void draw_wire(const Wire *wire)
 {
-    draw_line(wire->x0, wire->y0, wire->x1, wire->y1, '-', TB_RED, TB_DEFAULT);
+    draw_line(wire->x0, wire->y0, wire->x0, wire->y1, '-', TB_RED|TB_BOLD, TB_DEFAULT);
+    draw_line(wire->x0, wire->y1, wire->x1, wire->y1, '-', TB_RED|TB_BOLD, TB_DEFAULT);
 }
 
 char *get_gate_ascii(const Gate *gate)
@@ -123,7 +133,10 @@ char *get_gate_ascii(const Gate *gate)
         return "-#######\n"
                " # XOR #-\n"
                "-#######";
-    }   
+    case CUSTOM:
+        break;
+    }
+    return "";
 }
 
 void draw_circuit()
@@ -133,15 +146,97 @@ void draw_circuit()
                   gate_list[i]->x, gate_list[i]->y,
                   TB_GREEN, TB_DEFAULT);
     }
-    for (int i = 0; i < wire_list_len; i++) {
+    for (int i = 0; i < wire_list_len; i++)
         draw_wire(wire_list[i]);
-    }
+}
+
+void draw()
+{
+    tb_clear();
+    draw_circuit();
+    tb_change_cell(cursor_x, cursor_y, '+', TB_WHITE, TB_DEFAULT);
     tb_present();
+}
+
+void handle_cursor_input(const struct tb_event *event)
+{
+    if (event->key == TB_KEY_ARROW_DOWN || event->ch == 'j') {
+        if (!(cursor_y + 2 > tb_height())) cursor_y++;
+    } else if (event->key == TB_KEY_ARROW_UP || event->ch == 'k') {
+        if (!(cursor_y - 1 < 0)) cursor_y--;
+    } else if (event->key == TB_KEY_ARROW_LEFT || event->ch == 'h') {
+        if (!(cursor_x - 1 < 0)) cursor_x--;
+    } else if (event->key == TB_KEY_ARROW_RIGHT || event->ch == 'l') {
+        if (!(cursor_x + 2 > tb_width())) cursor_x++;
+    }
+}
+
+void handle_input()
+{
+    struct tb_event event;
+    tb_peek_event(&event, 1);
+
+    handle_cursor_input(&event);
+
+    if (event.ch == 'q') {
+        draw_text("Are you sure you want to quit? [y/n]", 0, tb_height() - 1,
+                  TB_WHITE, TB_DEFAULT);
+        tb_present();
+        tb_poll_event(&event);
+        if (event.ch == 'y' || event.ch == 'Y')
+            running = false;
+    } else if (event.ch == 'a' || event.ch == 'A') {
+        draw_text("Select the gate to place.\n0. None\n1. AND\n2. OR\n3. XOR\n4. NOT",
+                  0, tb_height() - 6, TB_WHITE, TB_DEFAULT);
+        tb_present();
+        tb_poll_event(&event);
+
+        if (event.ch < '0' || event.ch > '4') {
+            draw_text("Invalid selection!", 0, tb_height() - 1,
+                      TB_RED, TB_DEFAULT);
+            tb_present();
+            tb_poll_event(&event);
+        }
+
+        switch (event.ch) {
+        case '1':
+            new_gate(2, AND, cursor_x, cursor_y);
+            break;
+        case '2':
+            new_gate(2, OR, cursor_x, cursor_y);
+            break;
+        case '3':
+            new_gate(2, XOR, cursor_x, cursor_y);
+            break;
+        case '4':
+            new_gate(1, NOT, cursor_x, cursor_y);
+            break;
+        }
+    } else if (event.ch == 'w' || event.ch == 'W') {
+        int start_x = cursor_x;
+        int start_y = cursor_y;
+
+        Wire *wire = new_wire(cursor_x, cursor_y, 0, 0);
+
+        while (event.key != TB_KEY_ENTER) {
+            // Handle input
+            tb_poll_event(&event);
+            handle_cursor_input(&event);
+            wire->x1 = cursor_x;
+            wire->y1 = cursor_y;
+
+            // Draw to screen
+            draw();
+            draw_text("Press enter to place wire.", 0, tb_height() - 1,
+                      TB_WHITE, TB_DEFAULT);
+            tb_present();
+        }
+    }
 }
 
 int main()
 {
-    // Create gates
+    /*/ Create gates
     Gate *xor = new_gate(2, XOR);
     Gate *not = new_gate(1, NOT);
     Gate *not2 = new_gate(1, NOT);
@@ -164,8 +259,9 @@ int main()
     not->x = 28;
 
     // Create wires
-    Wire *w1 = new_wire(10, 1, 12, 1);
-    Wire *w2 = new_wire(12, 1, 12, 3);
+    new_wire(10, 1, 12, 1);
+    new_wire(12, 1, 12, 3);
+    */
 
     // Graphics
     if (tb_init()) { // Initialize termbox
@@ -173,10 +269,11 @@ int main()
         return 1;
     }
 
-    draw_circuit(not2);
-
-    struct tb_event ev;
-    tb_poll_event(&ev);
+    // Main loop
+    while (running) {
+        handle_input();
+        draw();
+    }
 
     tb_shutdown();
 }

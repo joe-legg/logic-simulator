@@ -1,3 +1,3 @@
 #!/bin/bash
-tcc main.c -ltermbox -g -Wall
+gcc main.c -lm -ltermbox -g -Wall
 ./a.out
