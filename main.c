@@ -27,7 +27,7 @@ typedef struct Wire {
 
 // Global variables
 
-Gate **gate_list; // WARNING: this might need to be removed TODO
+Gate **gate_list;
 int gate_list_len;
 
 Wire **wire_list;
@@ -108,28 +108,29 @@ char *get_gate_ascii(const Gate *gate)
 {
     switch (gate->type) {
     case AND:
-        return "-######\n"
-               " # And #-\n"
-               "-######";
+        return "-#######\n"
+               " # AND #-\n"
+               "-#######";
     case OR:
-        return "-######\n"
-               "  # Or #-\n"
-               "-######";
+        return "-#######\n"
+               " # OR  #-\n"
+               "-#######";
     case NOT:
         return " #######\n"
-               "-# Not #*-\n"
+               "-# NOT #*-\n"
                " #######";
     case XOR:
-        return "-# #######\n"
-               "  # # Xor #-\n"
-               "-# #######";
+        return "-#######\n"
+               " # XOR #-\n"
+               "-#######";
     }   
 }
 
 void draw_circuit()
 {
     for (int i = 0; i < gate_list_len; i++) {
-        draw_text(get_gate_ascii(gate_list[i]), gate_list[i]->x, gate_list[i]->y,
+        draw_text(get_gate_ascii(gate_list[i]),
+                  gate_list[i]->x, gate_list[i]->y,
                   TB_GREEN, TB_DEFAULT);
     }
     for (int i = 0; i < wire_list_len; i++) {
@@ -164,7 +165,7 @@ int main()
 
     // Create wires
     Wire *w1 = new_wire(10, 1, 12, 1);
-    Wire *w2 = new_wire(12, 1, 12, 3); // Not working
+    Wire *w2 = new_wire(12, 1, 12, 3);
 
     // Graphics
     if (tb_init()) { // Initialize termbox
