@@ -122,20 +122,10 @@ void update_circuit_from_top(Gate *top_level_gate)
         update_circuit_from_top(top_level_gate->out.next_gate);
 }
 
-Gate *get_gate_under_cursor()
-{
-    for (int i = 0; i < gate_list_len; i++)
-        if (cursor_x >= gate_list[i]->x &&
-            cursor_y >= gate_list[i]->y &&
-            cursor_x < gate_list[i]->width + gate_list[i]->x &&
-            cursor_y < gate_list[i]->height + gate_list[i]->y)
-            return gate_list[i];
-    return NULL;
-}
-
 void draw_wire(const Wire *wire)
 {
-    draw_line(wire->x0, wire->y0 + 1, wire->x0, wire->y1 + 1, '-',
+    tb_change_cell(wire->x0, wire->y0, '-', TB_RED|TB_BOLD, TB_DEFAULT);
+    draw_line(wire->x0, wire->y0 + 1, wire->x0, wire->y1, '-',
               TB_RED|TB_BOLD, TB_DEFAULT);
     draw_line(wire->x0, wire->y1, wire->x1, wire->y1, '-', TB_RED|TB_BOLD,
               TB_DEFAULT);
@@ -185,6 +175,26 @@ void draw()
     tb_present();
 }
 
+Gate *get_gate_under_cursor()
+{
+    for (int i = 0; i < gate_list_len; i++)
+        if (cursor_x >= gate_list[i]->x &&
+            cursor_y >= gate_list[i]->y &&
+            cursor_x < gate_list[i]->width + gate_list[i]->x &&
+            cursor_y < gate_list[i]->height + gate_list[i]->y)
+            return gate_list[i];
+    return NULL;
+}
+
+Wire *get_wire_under_cursor()
+{
+    for (int i = 0; i < wire_list_len; i++)
+        if ((cursor_x == wire_list[i]->x0 && cursor_y < wire_list[i]->y1) ||
+            (cursor_x < wire_list[i]->x1 && cursor_y == wire_list[i]->y1))
+            return wire_list[i];
+    return NULL;
+}
+
 void handle_cursor_input(const struct tb_event *event)
 {
     if (event->key == TB_KEY_ARROW_DOWN || event->ch == 'j') {
@@ -195,6 +205,75 @@ void handle_cursor_input(const struct tb_event *event)
         if (!(cursor_x - 1 < 0)) cursor_x--;
     } else if (event->key == TB_KEY_ARROW_RIGHT || event->ch == 'l') {
         if (!(cursor_x + 2 > tb_width())) cursor_x++;
+    }
+}
+
+void move_component()
+{
+    struct tb_event event;
+    Gate *gate_to_move = get_gate_under_cursor();
+
+    if (gate_to_move != NULL) { // If there is a gate under the cursor
+        int gate_start_x = gate_to_move->x;
+        int gate_start_y = gate_to_move->y;
+
+        while (event.key != TB_KEY_ENTER) {
+            // Handle input
+            tb_poll_event(&event);
+            if (event.key == TB_KEY_ESC) {
+                gate_to_move->x = gate_start_x;
+                gate_to_move->y = gate_start_y;
+                break;
+            }
+            handle_cursor_input(&event);
+
+            // Move gate to cursor
+            gate_to_move->x = cursor_x;
+            gate_to_move->y = cursor_y;
+
+            // Draw to screen
+            draw();
+            draw_text("Press enter to place gate.", 0, tb_height() - 1,
+                      TB_WHITE, TB_DEFAULT);
+            tb_present();
+        }
+    } else {
+        Wire *wire_to_move = get_wire_under_cursor();
+
+        if (wire_to_move != NULL) {
+            int wire_start_x0 = wire_to_move->x0;
+            int wire_start_y0 = wire_to_move->y0;
+            int wire_start_x1 = wire_to_move->x1;
+            int wire_start_y1 = wire_to_move->y1;
+
+            int dx = abs(wire_start_x0 - wire_start_x1);
+            int dy = abs(wire_start_y0 - wire_start_y1);
+
+            while (event.key != TB_KEY_ENTER) {
+                // Handle input
+                tb_poll_event(&event);
+                if (event.key == TB_KEY_ESC) { // Reset wire
+                    wire_to_move->x0 = wire_start_x0;
+                    wire_to_move->y0 = wire_start_y0;
+                    wire_to_move->x1 = wire_start_x1;
+                    wire_to_move->y1 = wire_start_y1;
+                    break;
+                }
+                handle_cursor_input(&event);
+
+                // Move wire to cursor
+                wire_to_move->x0 = cursor_x;
+                wire_to_move->y0 = cursor_y;
+                wire_to_move->x1 = cursor_x + dx;
+                wire_to_move->y1 = cursor_y + dy;
+
+                // Draw to screen
+                draw();
+                draw_text("Press enter to place wire.", 0, tb_height() - 1,
+                          TB_WHITE, TB_DEFAULT);
+                tb_present();
+            }
+        }
     }
 }
 
@@ -219,33 +298,7 @@ void handle_input()
         tb_present();
         tb_poll_event(&event);
     } else if (event.ch == 'm' || event.ch == 'M') { // Move gate
-        Gate *gate_to_move = get_gate_under_cursor();
-
-        if (gate_to_move != NULL) { // If there is a gate under the cursor
-            int gate_start_x = gate_to_move->x;
-            int gate_start_y = gate_to_move->y;
-
-            while (event.key != TB_KEY_ENTER) {
-                // Handle input
-                tb_poll_event(&event);
-                if (event.key == TB_KEY_ESC) {
-                    gate_to_move->x = gate_start_x;
-                    gate_to_move->y = gate_start_y;
-                    break;
-                }
-                handle_cursor_input(&event);
-
-                // Move gate to cursor
-                gate_to_move->x = cursor_x;
-                gate_to_move->y = cursor_y;
-
-                // Draw to screen
-                draw();
-                draw_text("Press enter to place gate.", 0, tb_height() - 1,
-                          TB_WHITE, TB_DEFAULT);
-                tb_present();
-            }
-        }
+        move_component();
     } else if (event.ch == 'a' || event.ch == 'A') { // Place gate
         draw_text("Select the gate to place.\n0. None\n1. AND\n2. OR\n3. XOR\n4. NOT",
                   0, tb_height() - 6, TB_WHITE, TB_DEFAULT);
