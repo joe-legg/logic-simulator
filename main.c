@@ -1,23 +1,28 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include "tgraphics.h"
+
+// Types
 
 typedef struct Gate Gate;
 
-typedef struct Output {
+typedef struct Connection {
     Gate *next_gate;
     int index;
-} Output;
+} Connection;
 
 typedef struct Gate {
     enum { NOT, AND, OR, XOR, CUSTOM } type;
     bool *inputs;
-    Output out;
+    Connection out;
+
+    int x, y;
 } Gate;
 
 // Global variables
 
-Gate **gate_list;
+Gate **gate_list; // WARNING: this might need to be removed TODO
 int gate_list_len;
 
 // Functions
@@ -64,13 +69,50 @@ bool update_gate(Gate *gate)
     return (gate->out.next_gate)->inputs[gate->out.index] = sim_gate(gate);
 }
 
-void update_circuit(Gate *top_level_gate)
+void update_circuit_from_top(Gate *top_level_gate)
 {
     bool result = update_gate(top_level_gate); // Update the first gate
+    // Stop if the current gate is the last
     if (top_level_gate->out.next_gate->out.index < 0)
         printf("Circuit updated. Result %d\n", result);
     else
-        update_circuit(top_level_gate->out.next_gate);
+        update_circuit_from_top(top_level_gate->out.next_gate);
+}
+
+char *get_gate_ascii(const Gate *gate)
+{
+    switch (gate->type) {
+    case AND:
+        return "-######\n"
+               " # And #-\n"
+               "-######";
+    case OR:
+        return "-######\n"
+               "  # Or #-\n"
+               "-######";
+    case NOT:
+        return " #####\n"
+               "-# Not #*-\n"
+               " #####";
+    case XOR:
+        return "-# #######\n"
+               "  # # Xor #-\n"
+               "-# #######";
+    }   
+}
+
+void draw_circuit(Gate *top_level_gate)
+{
+    tb_clear();
+    draw_text(get_gate_ascii(top_level_gate), top_level_gate->x, top_level_gate->y,
+              TB_GREEN, TB_DEFAULT);
+    tb_present();
+
+    struct tb_event ev;
+    tb_poll_event(&ev);
+
+    if (!(top_level_gate->out.index < 0))
+        draw_circuit(top_level_gate->out.next_gate);
 }
 
 int main()
@@ -85,14 +127,24 @@ int main()
     not2->out.index = 0;
     xor->out.next_gate = not;
     xor->out.index = 0;
-    
+
     // Set inputs
     not2->inputs[0] = 0;
     xor->inputs[0] = 1;
 
     // Evaluate circuit
-    update_circuit(not2);
+    update_circuit_from_top(not2);
 
-    //for (int i = 0; i < gate_list_len; i++) TODO
-    //    free(gate_list[i]);
+    // Graphics
+    if (tb_init()) { // Initialize termbox
+        printf("Error initializing termbox.");
+        return 1;
+    }
+
+    draw_circuit(not2);
+
+    struct tb_event ev;
+    tb_poll_event(&ev);
+
+    tb_shutdown();
 }

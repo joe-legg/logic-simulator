@@ -1,15 +1,40 @@
+/*
+A simple header file for create terminal based graphics.
+
+Example program:
+int main()
+{
+    if (tb_init()) { // Initialize termbox
+        printf("Error initializing termbox.");
+         return 1;
+    }
+
+    draw_text("Hello, world!", 3, 5, TB_GREEN, TB_DEFAULT);
+
+    struct tb_event ev;
+    tb_poll_event(&ev);
+
+    tb_shutdown();
+}
+
+*/
 #ifndef TERMINAL_GRAPHICS_H
 #define TERMINAL_GRAPHICS_H
 
 #include <termbox.h>
 
-void tg_draw_text(char *txt, int x, int y, uint32_t fg, uint32_t bg)
+void draw_text(char *txt, int x, int y, uint32_t fg, uint32_t bg)
 {
-    for (int i = 0; txt[i] != '\0'; i++)
+    for (int i = 0; txt[i] != '\0'; i++) {
+        if (txt[i] == '\n') { // Handle new lines
+            draw_text(txt + i + 1, x, y + 1, fg, bg);
+            break;
+        }
         tb_change_cell(x + i, y, txt[i], fg, bg);
+    }
 }
 
-void tg_draw_rect(int x, int y, int width, int height,
+void draw_rect(int x, int y, int width, int height,
                   char ch, uint32_t fg, uint32_t bg)
 {
     for (int j = 0; j < height; j++)
@@ -17,7 +42,7 @@ void tg_draw_rect(int x, int y, int width, int height,
             tb_change_cell(x + i, y + j, ch, fg, bg);
 }
 
-void tg_draw_line(int x0, int y0, int x1, int y1, char ch,
+void draw_line(int x0, int y0, int x1, int y1, char ch,
                   uint32_t fg, uint32_t bg)
 {
     int dx = x1 - x0;
