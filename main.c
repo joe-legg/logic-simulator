@@ -5,26 +5,21 @@
 
 // Types
 
-typedef struct Gate Gate;
-
-typedef struct Connection {
-    Gate *next_gate;
-    int index;
-} Connection;
+typedef struct Wire {
+    bool state;
+    int x0, y0;
+    int x1, y1;
+} Wire;
 
 typedef struct Gate {
     enum { NOT, AND, OR, XOR, CUSTOM } type;
-    bool *inputs;
-    Connection out;
+    Wire **inputs;
+    int num_of_inputs;
+    Wire *output;
 
     int x, y;
     int width, height;
 } Gate;
-
-typedef struct Wire {
-    int x0, y0;
-    int x1, y1;
-} Wire;
 
 // Global variables and constants
 
@@ -32,13 +27,14 @@ const char help[] = "\033[1;96mHelp\033[39;49m\n\n"
                     "Key                 Description\n"
                     "--------------------------------------\n"
                     "arrow keys, hjkl    Move the cursor.\n"
-                    "q                   Quit the simulator.\n"
+                    "ctrl + q            Quit the simulator.\n"
                     "a                   Place a new gate.\n"
                     "w                   Place a new wire.\n"
                     "d                   Delete component.\n"
                     "m                   Move component under cursor.\n\n";
 
 bool running = true;
+bool simulate_circuit = false;
 
 int cursor_y, cursor_x;
 
@@ -53,15 +49,14 @@ int wire_list_len;
 Gate *new_gate(int num_of_inputs, int type, int x, int y)
 {
     // Allocate memory
-    Gate *gate = malloc(sizeof(Gate *));
-    gate->inputs = malloc(num_of_inputs * sizeof(bool *));
+    Gate *gate = malloc(sizeof(Gate));
+    gate->inputs = malloc(num_of_inputs * sizeof(Wire *));
 
     // Add gate to list
     gate_list = realloc(gate_list, ++gate_list_len * sizeof(Gate *));
     gate_list[gate_list_len - 1] = gate;
 
     gate->type = type; // Set type
-    gate->out.index = -1;
 
     gate->x = x;
     gate->y = y;
@@ -75,7 +70,7 @@ Gate *new_gate(int num_of_inputs, int type, int x, int y)
 
 Wire *new_wire(int x0, int y0, int x1, int y1)
 {
-    Wire *wire = malloc(sizeof(Wire *));
+    Wire *wire = malloc(sizeof(Wire));
     wire->x0 = x0;
     wire->y0 = y0;
     wire->x1 = x1;
@@ -87,49 +82,114 @@ Wire *new_wire(int x0, int y0, int x1, int y1)
 
 // Simulation
 
-bool sim_and(const Gate *and) { return and->inputs[0] & and->inputs[1]; }
-bool sim_or(const Gate *or)   { return or->inputs[0] | or->inputs[1];   }
-bool sim_not(const Gate *not) { return !not->inputs[0];                 }
-bool sim_xor(const Gate *xor) { return xor->inputs[0] ^ xor->inputs[1]; }
+void sim_and(const Gate *and)
+{
+    if (and->num_of_inputs > 0) {
+        and->output->state = and->inputs[0]->state;
+        for (int i = 1; i < and->num_of_inputs; i++)
+            and->output->state = and->output->state & and->inputs[i]->state;
+    }
+}
 
-bool sim_gate(const Gate *gate)
+void sim_or(const Gate *or)
+{
+    if (or->num_of_inputs > 0) {
+        or->output->state = or->inputs[0]->state;
+        for (int i = 1; i < or->num_of_inputs; i++)
+            or->output->state = or->output->state | or->inputs[i]->state;
+    }
+}
+
+void sim_not(const Gate *not)
+{
+    if (not->num_of_inputs > 0) {
+        not->output->state = !not->inputs[0]->state;
+    }
+}
+
+void sim_xor(const Gate *xor)
+{
+    if (xor->num_of_inputs > 0) {
+        xor->output->state = xor->inputs[0]->state;
+        for (int i = 1; i < xor->num_of_inputs; i++)
+            xor->output->state = xor->output->state ^ xor->inputs[i]->state;
+    }
+}
+
+void sim_gate(const Gate *gate)
 {
     switch (gate->type) {
     case AND:
-        return sim_and(gate);
+        sim_and(gate);
     case OR:
-        return sim_or(gate);
+        sim_or(gate);
     case NOT:
-        return sim_not(gate);
+        sim_not(gate);
     case XOR:
-        return sim_xor(gate);
+        sim_xor(gate);
     case CUSTOM:
         break;
     }
 }
 
-bool update_gate(Gate *gate)
+void update_circuit()
 {
-    return (gate->out.next_gate)->inputs[gate->out.index] = sim_gate(gate);
+    for (int i = 0; i < gate_list_len; i++)
+        sim_gate(gate_list[i]);
 }
 
-void update_circuit_from_top(Gate *top_level_gate)
+void build_representation_from_graphics()
 {
-    bool result = update_gate(top_level_gate); // Update the first gate
-    // Stop if the current gate is the last
-    if (top_level_gate->out.next_gate->out.index < 0)
-        printf("Circuit updated. Result %d\n", result);
-    else
-        update_circuit_from_top(top_level_gate->out.next_gate);
+    // Scan for connections
+    for (int i = 0; i < gate_list_len; i++) {
+        Gate *cur_gate = gate_list[i];
+        cur_gate->output = NULL;
+        cur_gate->num_of_inputs = 0; // Reset gate inputs
+
+        for (int j = 0; j < wire_list_len; j++) {
+            Wire *cur_wire = wire_list[j];
+            // Connection to input
+            if (cur_wire->x1 == cur_gate->x && cur_wire->y1 <= cur_gate->y &&
+                cur_wire->y1 != cur_gate->y + 2) {
+
+                cur_gate->inputs = realloc(cur_gate->inputs,
+                        ++cur_gate->num_of_inputs * sizeof(Wire *));
+                cur_gate->inputs[cur_gate->num_of_inputs - 1] = cur_wire;
+            // Not gate
+            } else if (cur_wire->x1 == cur_gate->x &&
+                       cur_wire->y1 <= cur_gate->y &&
+                       cur_wire->y1 == cur_gate->y + 2 &&
+                       cur_gate->type == NOT) {
+
+                cur_gate->inputs = realloc(cur_gate->inputs,
+                        ++cur_gate->num_of_inputs * sizeof(Wire *));
+                cur_gate->inputs[cur_gate->num_of_inputs - 1] = cur_wire;
+            // Outputs
+            } else if (cur_wire->x0 == cur_gate->x + cur_gate->width &&
+                       cur_wire->y0 == cur_gate->y + 2) {
+                cur_gate->output = cur_wire;
+            }
+        }
+    }
 }
+
+// Graphics
 
 void draw_wire(const Wire *wire)
 {
-    tb_change_cell(wire->x0, wire->y0, '-', TB_RED|TB_BOLD, TB_DEFAULT);
-    draw_line(wire->x0, wire->y0 + 1, wire->x0, wire->y1, '-',
-              TB_RED|TB_BOLD, TB_DEFAULT);
-    draw_line(wire->x0, wire->y1, wire->x1, wire->y1, '-', TB_RED|TB_BOLD,
-              TB_DEFAULT);
+    if (wire->state) {
+        tb_change_cell(wire->x0, wire->y0, '-', TB_RED|TB_BOLD, TB_DEFAULT);
+        draw_line(wire->x0, wire->y0 + 1, wire->x0, wire->y1, '-',
+                  TB_RED|TB_BOLD, TB_DEFAULT);
+        draw_line(wire->x0, wire->y1, wire->x1, wire->y1, '-', TB_RED|TB_BOLD,
+                  TB_DEFAULT);
+    } else {
+        tb_change_cell(wire->x0, wire->y0, '-', TB_RED|TB_BOLD, TB_DEFAULT);
+        draw_line(wire->x0, wire->y0 + 1, wire->x0, wire->y1, '-',
+                  TB_RED, TB_DEFAULT);
+        draw_line(wire->x0, wire->y1, wire->x1, wire->y1, '-', TB_RED,
+                  TB_DEFAULT);
+    }
 }
 
 char *get_gate_ascii(const Gate *gate)
@@ -173,8 +233,12 @@ void draw()
     tb_clear();
     draw_circuit();
     tb_change_cell(cursor_x, cursor_y, '+', TB_WHITE, TB_DEFAULT);
+    if (simulate_circuit) draw_text("Simulation running.", 0, tb_height() - 1,
+                                    TB_WHITE, TB_DEFAULT);
     tb_present();
 }
+
+// User Input
 
 Gate *get_gate_under_cursor()
 {
@@ -218,6 +282,7 @@ void move_component_at_cursor()
         int gate_start_x = gate_to_move->x;
         int gate_start_y = gate_to_move->y;
 
+        tb_peek_event(&event, 1);
         while (event.key != TB_KEY_ENTER) {
             // Handle input
             tb_poll_event(&event);
@@ -343,7 +408,7 @@ void handle_input()
 
     handle_cursor_input(&event);
 
-    if (event.ch == 'q') { // Quit
+    if (event.key == TB_KEY_CTRL_Q) { // Quit
         draw_text("Are you sure you want to quit? [y/n]", 0, tb_height() - 1,
                   TB_WHITE, TB_DEFAULT);
         tb_present();
@@ -376,6 +441,8 @@ void handle_input()
         place_gate_at_cursor();
     } else if (event.ch == 'w' || event.ch == 'W') { // Place wire
         place_wire();
+    } else if (event.key == TB_KEY_SPACE) { // Toggle simulation
+        simulate_circuit = !simulate_circuit;
     }
 }
 
@@ -395,6 +462,8 @@ int main()
     while (running) {
         handle_input();
         draw();
+        build_representation_from_graphics();
+        if (simulate_circuit) update_circuit();
     }
 
     tb_shutdown();

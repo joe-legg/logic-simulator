@@ -1,6 +1,9 @@
+Main todo:
 - [ ] presentation.
 - [ ] game.
-- [ ] connect drawing system to simulator.
+- [ ] wire connect to wire.
+- [ ] connect drawing system to simulator. Maybe redo it.
+    - [ ] build representation of the circuit form graphics.
 - [x] fix wire drawing.
 - [x] user input.
 - [x] display circuit.
@@ -8,6 +11,11 @@
 - [x] create basic logic simulator.
 
 Other:
+- [ ] debug console.
 - [ ] sub-circuits.
 - [ ] compile to verilog.
 - [ ] connect wires to other wires.
+- [ ] visulize circuit while simulating.
+
+gate a ---- gate b
+        w1
