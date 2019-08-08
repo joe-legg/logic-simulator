@@ -278,6 +278,31 @@ void move_component_at_cursor()
     }
 }
 
+void place_wire()
+{
+    struct tb_event event;
+    Wire *wire = new_wire(cursor_x, cursor_y, 0, 0);
+
+    while (event.key != TB_KEY_ENTER) {
+        // Handle input
+        tb_poll_event(&event);
+        if (event.key == TB_KEY_ESC) {
+            wire_list_len--;
+            free(wire);
+            break;
+        }
+        handle_cursor_input(&event);
+        wire->x1 = cursor_x;
+        wire->y1 = cursor_y;
+
+        // Draw to screen
+        draw();
+        draw_text("Press enter to place wire.", 0, tb_height() - 1,
+                  TB_WHITE, TB_DEFAULT);
+        tb_present();
+    }
+}
+
 void place_gate_at_cursor()
 {
     struct tb_event event;
@@ -350,26 +375,7 @@ void handle_input()
     } else if (event.ch == 'a' || event.ch == 'A') { // Place gate
         place_gate_at_cursor();
     } else if (event.ch == 'w' || event.ch == 'W') { // Place wire
-        Wire *wire = new_wire(cursor_x, cursor_y, 0, 0);
-
-        while (event.key != TB_KEY_ENTER) {
-            // Handle input
-            tb_poll_event(&event);
-            if (event.key == TB_KEY_ESC) {
-                wire_list_len--;
-                free(wire);
-                break;
-            }
-            handle_cursor_input(&event);
-            wire->x1 = cursor_x;
-            wire->y1 = cursor_y;
-
-            // Draw to screen
-            draw();
-            draw_text("Press enter to place wire.", 0, tb_height() - 1,
-                      TB_WHITE, TB_DEFAULT);
-            tb_present();
-        }
+        place_wire();
     }
 }
 
