@@ -387,6 +387,9 @@ int main()
         return 1;
     }
 
+    cursor_x = tb_width() / 2;
+    cursor_y = tb_height() / 2;
+
     // Main loop
     while (running) {
         handle_input();
