@@ -386,7 +386,8 @@ int main()
         printf("Error initializing termbox.");
         return 1;
     }
-
+    
+    // Center cursor
     cursor_x = tb_width() / 2;
     cursor_y = tb_height() / 2;
 

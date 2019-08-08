@@ -1,5 +1,6 @@
 - [ ] presentation.
 - [ ] game.
+- [ ] connect drawing system to simulator.
 - [x] fix wire drawing.
 - [x] user input.
 - [x] display circuit.
