@@ -75,6 +75,7 @@ Wire *new_wire(int x0, int y0, int x1, int y1)
     wire->y0 = y0;
     wire->x1 = x1;
     wire->y1 = y1;
+    wire->state = 0;
     wire_list = realloc(wire_list, ++wire_list_len * sizeof(Wire *));
     wire_list[wire_list_len - 1] = wire;
     return wire;
@@ -84,7 +85,7 @@ Wire *new_wire(int x0, int y0, int x1, int y1)
 
 void sim_and(const Gate *and)
 {
-    if (and->num_of_inputs > 0) {
+    if (and->num_of_inputs > 0 && and->output != NULL) {
         and->output->state = and->inputs[0]->state;
         for (int i = 1; i < and->num_of_inputs; i++)
             and->output->state = and->output->state & and->inputs[i]->state;
@@ -93,7 +94,7 @@ void sim_and(const Gate *and)
 
 void sim_or(const Gate *or)
 {
-    if (or->num_of_inputs > 0) {
+    if (or->num_of_inputs > 0 && or->output != NULL) {
         or->output->state = or->inputs[0]->state;
         for (int i = 1; i < or->num_of_inputs; i++)
             or->output->state = or->output->state | or->inputs[i]->state;
@@ -102,14 +103,14 @@ void sim_or(const Gate *or)
 
 void sim_not(const Gate *not)
 {
-    if (not->num_of_inputs > 0) {
+    if (not->num_of_inputs > 0 && not->output != NULL) {
         not->output->state = !not->inputs[0]->state;
     }
 }
 
 void sim_xor(const Gate *xor)
 {
-    if (xor->num_of_inputs > 0) {
+    if (xor->num_of_inputs > 0 && xor->output != NULL) {
         xor->output->state = xor->inputs[0]->state;
         for (int i = 1; i < xor->num_of_inputs; i++)
             xor->output->state = xor->output->state ^ xor->inputs[i]->state;
@@ -184,7 +185,7 @@ void draw_wire(const Wire *wire)
         draw_line(wire->x0, wire->y1, wire->x1, wire->y1, '-', TB_RED|TB_BOLD,
                   TB_DEFAULT);
     } else {
-        tb_change_cell(wire->x0, wire->y0, '-', TB_RED|TB_BOLD, TB_DEFAULT);
+        tb_change_cell(wire->x0, wire->y0, '-', TB_BLUE|TB_BOLD, TB_DEFAULT);
         draw_line(wire->x0, wire->y0 + 1, wire->x0, wire->y1, '-',
                   TB_RED, TB_DEFAULT);
         draw_line(wire->x0, wire->y1, wire->x1, wire->y1, '-', TB_RED,
@@ -348,6 +349,7 @@ void place_wire()
     struct tb_event event;
     Wire *wire = new_wire(cursor_x, cursor_y, 0, 0);
 
+    tb_peek_event(&event, 1);
     while (event.key != TB_KEY_ENTER) {
         // Handle input
         tb_poll_event(&event);
