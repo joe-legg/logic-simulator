@@ -7,8 +7,6 @@
 
 typedef struct Wire {
     bool state;
-    
-    struct Gate *output; // The next gate for simulation
 
     int x0, y0;
     int x1, y1;
@@ -20,7 +18,7 @@ typedef struct Gate {
     int num_of_inputs;
     Wire *output;
 
-    int value; // Used for inputs
+    bool value; // Used for inputs
 
     int x, y;
     int width, height;
@@ -71,6 +69,8 @@ Gate *new_gate(int num_of_inputs, int type, int x, int y)
         gate->height = 3;
     }
 
+    gate->value = 0;
+
     return gate;
 }
 
@@ -82,7 +82,6 @@ Wire *new_wire(int x0, int y0, int x1, int y1)
     wire->x1 = x1;
     wire->y1 = y1;
     wire->state = 0;
-    wire->output = NULL;
     wire_list = realloc(wire_list, ++wire_list_len * sizeof(Wire *));
     wire_list[wire_list_len - 1] = wire;
     return wire;
@@ -171,13 +170,11 @@ void build_representation_from_graphics()
 
         for (int j = 0; j < wire_list_len; j++) {
             Wire *cur_wire = wire_list[j];
-            cur_wire->output = NULL;
             // Connection to input
             if (cur_wire->x1 == cur_gate->x && cur_wire->y1 >= cur_gate->y &&
                 cur_wire->y1 != cur_gate->y + 1 &&
                 cur_wire->y1 <= cur_gate->y + cur_gate->height) {
 
-                cur_wire->output = cur_gate;
                 cur_gate->inputs = realloc(cur_gate->inputs,
                         ++cur_gate->num_of_inputs * sizeof(Wire *));
                 cur_gate->inputs[cur_gate->num_of_inputs - 1] = cur_wire;
@@ -186,7 +183,6 @@ void build_representation_from_graphics()
                        cur_wire->y1 == cur_gate->y + 1 &&
                        cur_gate->type == NOT) {
 
-                cur_wire->output = cur_gate;
                 cur_gate->inputs = realloc(cur_gate->inputs,
                         ++cur_gate->num_of_inputs * sizeof(Wire *));
                 cur_gate->inputs[cur_gate->num_of_inputs - 1] = cur_wire;
@@ -218,21 +214,25 @@ void build_representation_from_graphics()
         }
     }
 
-    // FIXME
-    // Scan for connections between wires
     /*
+    // Scan for connections between wires
     for (int i = 0; i < wire_list_len; i++) {
         for (int j = 0; j < wire_list_len; j++) {
             if (j == i) continue;
             Wire *wire_a = wire_list[i];
             Wire *wire_b = wire_list[j];
-            
-            if ((wire_b->x1 == wire_a->x0 && wire_b->y1 < wire_a->y1) ||
-                (wire_b->x1 < wire_a->x1 && wire_b->y1 == wire_a->y1)) {
 
+            // Check for wire connection
+            if (((wire_b->x1 == wire_a->x0 && wire_b->y1 < wire_a->y1) ||
+                (wire_b->x1 < wire_a->x1 && wire_b->y1 == wire_a->y1)  ||
+                (wire_b->x1 == wire_a->x1 || wire_b->y1 == wire_a->y1))
+                ||
+                ((wire_b->x0 == wire_a->x0 && wire_b->y0 < wire_a->y1) ||
+                (wire_b->x0 < wire_a->x1 && wire_b->y0 == wire_a->y1)  ||
+                (wire_b->x0 == wire_a->x1 || wire_b->y0 == wire_a->y1))) {
+                
                 if (wire_b->state || wire_a->state) {
-                    wire_b->state = 1;
-                    wire_a->state = 1;
+                    wire_b->state = wire_b->state | wire_a->state;
                 }
             }
         }
@@ -339,20 +339,25 @@ int get_wire_under_cursor()
 {
     for (int i = 0; i < wire_list_len; i++)
         if ((cursor_x == wire_list[i]->x0 && cursor_y < wire_list[i]->y1) ||
-            (cursor_x < wire_list[i]->x1 && cursor_y == wire_list[i]->y1))
+            (cursor_x < wire_list[i]->x1 && cursor_y == wire_list[i]->y1) ||
+            (cursor_x == wire_list[i]->x1 || cursor_y == wire_list[i]->y1))
             return i;
     return -1;
 }
 
 void handle_cursor_input(const struct tb_event *event)
 {
-    if (event->key == TB_KEY_ARROW_DOWN || event->ch == 'j') {
+    if (event->key == TB_KEY_ARROW_DOWN || event->ch == 'j' ||
+        event->ch == 'J') {
         if (!(cursor_y + 2 > tb_height())) cursor_y++;
-    } else if (event->key == TB_KEY_ARROW_UP || event->ch == 'k') {
+    } else if (event->key == TB_KEY_ARROW_UP || event->ch == 'k' ||
+               event->ch == 'K') {
         if (!(cursor_y - 1 < 0)) cursor_y--;
-    } else if (event->key == TB_KEY_ARROW_LEFT || event->ch == 'h') {
+    } else if (event->key == TB_KEY_ARROW_LEFT || event->ch == 'h' ||
+               event->ch == 'H') {
         if (!(cursor_x - 1 < 0)) cursor_x--;
-    } else if (event->key == TB_KEY_ARROW_RIGHT || event->ch == 'l') {
+    } else if (event->key == TB_KEY_ARROW_RIGHT || event->ch == 'l' ||
+               event->ch == 'L') {
         if (!(cursor_x + 2 > tb_width())) cursor_x++;
     }
 }
