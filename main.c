@@ -7,6 +7,9 @@
 
 typedef struct Wire {
     bool state;
+    
+    struct Gate *output; // The next gate for simulation
+
     int x0, y0;
     int x1, y1;
 } Wire;
@@ -25,10 +28,10 @@ typedef struct Gate {
 
 const char help[] = "\033[1;96mHelp\033[39;49m\n\n"
                     "Key                 Description\n"
-                    "--------------------------------------\n"
+                    "------------------------------------------------\n"
                     "arrow keys, hjkl    Move the cursor.\n"
                     "ctrl + q            Quit the simulator.\n"
-                    "a                   Place a new gate.\n"
+                    "a                   Place a new gate/O.\n"
                     "w                   Place a new wire.\n"
                     "d                   Delete component.\n"
                     "m                   Move component under cursor.\n\n";
@@ -61,7 +64,7 @@ Gate *new_gate(int num_of_inputs, int type, int x, int y)
     gate->x = x;
     gate->y = y;
     if (type != CUSTOM) {
-        gate->width = 9;
+        gate->width = 8;
         gate->height = 3;
     }
 
@@ -76,6 +79,7 @@ Wire *new_wire(int x0, int y0, int x1, int y1)
     wire->x1 = x1;
     wire->y1 = y1;
     wire->state = 0;
+    wire->output = NULL;
     wire_list = realloc(wire_list, ++wire_list_len * sizeof(Wire *));
     wire_list[wire_list_len - 1] = wire;
     return wire;
@@ -139,13 +143,14 @@ void sim_gate(const Gate *gate)
 
 void update_circuit()
 {
-    for (int i = 0; i < gate_list_len; i++)
-        sim_gate(gate_list[i]);
+    for (int j = 0; j < gate_list_len; j++)
+        for (int i = 0; i < gate_list_len; i++)
+            sim_gate(gate_list[i]);
 }
 
 void build_representation_from_graphics()
 {
-    // Scan for connections
+    // Scan for connections between gates
     for (int i = 0; i < gate_list_len; i++) {
         Gate *cur_gate = gate_list[i];
         cur_gate->output = NULL;
@@ -153,11 +158,13 @@ void build_representation_from_graphics()
 
         for (int j = 0; j < wire_list_len; j++) {
             Wire *cur_wire = wire_list[j];
+            cur_wire->output = NULL;
             // Connection to input
             if (cur_wire->x1 == cur_gate->x && cur_wire->y1 >= cur_gate->y &&
                 cur_wire->y1 != cur_gate->y + 1 &&
                 cur_wire->y1 <= cur_gate->y + cur_gate->height) {
-                
+
+                cur_wire->output = cur_gate;
                 cur_gate->inputs = realloc(cur_gate->inputs,
                         ++cur_gate->num_of_inputs * sizeof(Wire *));
                 cur_gate->inputs[cur_gate->num_of_inputs - 1] = cur_wire;
@@ -166,14 +173,17 @@ void build_representation_from_graphics()
                        cur_wire->y1 == cur_gate->y + 1 &&
                        cur_gate->type == NOT) {
 
+                cur_wire->output = cur_gate;
                 cur_gate->inputs = realloc(cur_gate->inputs,
                         ++cur_gate->num_of_inputs * sizeof(Wire *));
                 cur_gate->inputs[cur_gate->num_of_inputs - 1] = cur_wire;
             // Outputs
             } else if (cur_wire->x0 == cur_gate->x + cur_gate->width &&
                        cur_wire->y0 == cur_gate->y + 1) {
+
                 cur_gate->output = cur_wire;
-            } else if ((cur_wire->x0 == cur_gate->x && // Swap wires around
+            // Swap wires around
+            } else if ((cur_wire->x0 == cur_gate->x && 
                        cur_wire->y0 >= cur_gate->y &&
                        cur_wire->y0 != cur_gate->y + 1 &&
                        cur_wire->y0 <= cur_gate->y + cur_gate->height) ||
@@ -194,6 +204,27 @@ void build_representation_from_graphics()
             }
         }
     }
+
+    // FIXME
+    // Scan for connections between wires
+    /*
+    for (int i = 0; i < wire_list_len; i++) {
+        for (int j = 0; j < wire_list_len; j++) {
+            if (j == i) continue;
+            Wire *wire_a = wire_list[i];
+            Wire *wire_b = wire_list[j];
+            
+            if ((wire_b->x1 == wire_a->x0 && wire_b->y1 < wire_a->y1) ||
+                (wire_b->x1 < wire_a->x1 && wire_b->y1 == wire_a->y1)) {
+
+                if (wire_b->state || wire_a->state) {
+                    wire_b->state = 1;
+                    wire_a->state = 1;
+                }
+            }
+        }
+    }
+    */
 }
 
 // Graphics
@@ -230,7 +261,7 @@ char *get_gate_ascii(const Gate *gate)
                "-#######";
     case NOT:
         return " #######\n"
-               "-# NOT #*-\n"
+               "-# NOT #-\n"
                " #######";
     case XOR:
         return "-#######\n"
@@ -399,14 +430,15 @@ void place_gate_at_cursor()
     struct tb_event event;
 
     // Display the options
-    draw_text("Select the gate to place.\n0. None\n1. AND\n2. OR\n3. XOR\n4. NOT",
-              0, tb_height() - 6, TB_WHITE, TB_DEFAULT);
+    draw_text("Select the gate to place.\n0. None\n1. AND\n2. OR\n3. XOR\n"
+              "4. NOT\n5. Input",
+              0, tb_height() - 7, TB_WHITE, TB_DEFAULT);
     tb_present();
     tb_poll_event(&event);
 
     if (event.ch < '0' || event.ch > '4') {
         draw_text("Invalid selection!", 0, tb_height() - 1,
-                  TB_RED, TB_DEFAULT);
+                  TB_RED|TB_BOLD, TB_DEFAULT);
         tb_present();
         tb_poll_event(&event);
     }
@@ -423,6 +455,9 @@ void place_gate_at_cursor()
         break;
     case '4':
         new_gate(1, NOT, cursor_x, cursor_y);
+        break;
+    case '5':
+        new_gate(0, INPUT, cursor_x, cursor_y);
         break;
     }
 }
