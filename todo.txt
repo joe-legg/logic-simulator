@@ -2,7 +2,7 @@ Main todo:
 - [ ] presentation.
 - [ ] game.
 - [ ] wire connect to wire.
-- [ ] fix wire placing direction.
+- [x] fix wire placing direction.
 - [x] connect drawing system to simulator. Maybe redo it.
     - [x] build representation of the circuit form graphics.
 - [x] fix wire drawing.
