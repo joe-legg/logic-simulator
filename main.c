@@ -15,10 +15,12 @@ typedef struct Wire {
 } Wire;
 
 typedef struct Gate {
-    enum { NOT, AND, OR, XOR, CUSTOM } type;
+    enum { NOT, AND, OR, XOR, INPUT, CUSTOM } type;
     Wire **inputs;
     int num_of_inputs;
     Wire *output;
+
+    int value; // Used for inputs
 
     int x, y;
     int width, height;
@@ -121,6 +123,13 @@ void sim_xor(const Gate *xor)
     }
 }
 
+void sim_input(const Gate *input)
+{
+    if (input->output != NULL) {
+        input->output->state = input->value;
+    }
+}
+
 void sim_gate(const Gate *gate)
 {
     switch (gate->type) {
@@ -135,6 +144,9 @@ void sim_gate(const Gate *gate)
         break;
     case XOR:
         sim_xor(gate);
+        break;
+    case INPUT:
+        sim_input(gate);
         break;
     case CUSTOM:
         break;
@@ -267,6 +279,10 @@ char *get_gate_ascii(const Gate *gate)
         return "-#######\n"
                " # XOR #-\n"
                "-#######";
+    case INPUT:
+        return "########\n"
+               "# Inp  #-\n"
+               "########";
     case CUSTOM:
         break;
     }
@@ -276,9 +292,20 @@ char *get_gate_ascii(const Gate *gate)
 void draw_circuit()
 {
     for (int i = 0; i < gate_list_len; i++) {
-        draw_text(get_gate_ascii(gate_list[i]),
-                  gate_list[i]->x, gate_list[i]->y,
-                  TB_GREEN, TB_DEFAULT);
+        if (gate_list[i]->type == INPUT) {
+            if (gate_list[i]->value == 1)
+                draw_text(get_gate_ascii(gate_list[i]),
+                          gate_list[i]->x, gate_list[i]->y,
+                          TB_BLUE|TB_BOLD, TB_DEFAULT);
+            else
+                draw_text(get_gate_ascii(gate_list[i]),
+                          gate_list[i]->x, gate_list[i]->y,
+                          TB_RED|TB_BOLD, TB_DEFAULT);
+        } else {
+            draw_text(get_gate_ascii(gate_list[i]),
+                      gate_list[i]->x, gate_list[i]->y,
+                      TB_GREEN, TB_DEFAULT);
+        }
     }
     for (int i = 0; i < wire_list_len; i++)
         draw_wire(wire_list[i]);
@@ -436,7 +463,7 @@ void place_gate_at_cursor()
     tb_present();
     tb_poll_event(&event);
 
-    if (event.ch < '0' || event.ch > '4') {
+    if (event.ch < '0' || event.ch > '5') {
         draw_text("Invalid selection!", 0, tb_height() - 1,
                   TB_RED|TB_BOLD, TB_DEFAULT);
         tb_present();
@@ -508,6 +535,10 @@ void handle_input()
         place_wire();
     } else if (event.key == TB_KEY_SPACE) { // Toggle simulation
         simulate_circuit = !simulate_circuit;
+    } else if (event.ch == 'i' || event.ch == 'I') { // Toggle input's value
+        Gate *gate_under_cursor = gate_list[get_gate_under_cursor()];
+        if (gate_under_cursor->type == INPUT)
+            gate_under_cursor->value = !gate_under_cursor->value;
     }
 }
 
