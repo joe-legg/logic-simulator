@@ -404,6 +404,7 @@ void move_component_at_cursor()
             int dx = abs(wire_start_x0 - wire_start_x1);
             int dy = abs(wire_start_y0 - wire_start_y1);
 
+            tb_peek_event(&event, 1);
             while (event.key != TB_KEY_ENTER) {
                 // Handle input
                 tb_poll_event(&event);
