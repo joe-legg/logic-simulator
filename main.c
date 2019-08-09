@@ -365,9 +365,10 @@ void handle_cursor_input(const struct tb_event *event)
 void move_component_at_cursor()
 {
     struct tb_event event;
-    Gate *gate_to_move = gate_list[get_gate_under_cursor()];
+    int gate_index = get_gate_under_cursor();
 
-    if (gate_to_move != NULL) { // If there is a gate under the cursor
+    if (gate_index >= 0) { // If there is a gate under the cursor
+        Gate *gate_to_move = gate_list[gate_index];
         int gate_start_x = gate_to_move->x;
         int gate_start_y = gate_to_move->y;
 
@@ -393,9 +394,10 @@ void move_component_at_cursor()
             tb_present();
         }
     } else {
-        Wire *wire_to_move = wire_list[get_wire_under_cursor()];
+        int wire_index = get_wire_under_cursor();
 
-        if (wire_to_move != NULL) {
+        if (wire_index >= 0) { // If there is a gate under the cursor
+            Wire *wire_to_move = wire_list[wire_index];
             int wire_start_x0 = wire_to_move->x0;
             int wire_start_y0 = wire_to_move->y0;
             int wire_start_x1 = wire_to_move->x1;
