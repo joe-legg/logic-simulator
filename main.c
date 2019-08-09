@@ -33,10 +33,11 @@ const char help[] = "\033[1;96mHelp\033[39;49m\n\n"
                     "------------------------------------------------\n"
                     "arrow keys, hjkl    Move the cursor.\n"
                     "ctrl + q            Quit the simulator.\n"
-                    "a                   Place a new gate/O.\n"
+                    "a                   Place a new gate/IO.\n"
                     "w                   Place a new wire.\n"
                     "d                   Delete component.\n"
-                    "m                   Move component under cursor.\n\n";
+                    "m                   Move component under cursor.\n"
+                    "i                   Toggle an input's value.\n\n";
 
 bool running = true;
 bool simulate_circuit = false;
@@ -504,9 +505,9 @@ void handle_input()
         if (event.ch == 'y' || event.ch == 'Y')
             running = false;
     } else if (event.ch == '?') { // Help
-        draw_line(0, tb_height() - 12, tb_width(), tb_height() - 12, '_',
+        draw_line(0, tb_height() - 13, tb_width(), tb_height() - 13, '_',
                   TB_WHITE, TB_DEFAULT);
-        draw_text(help, 0, tb_height() - 11, TB_WHITE, TB_DEFAULT);
+        draw_text(help, 0, tb_height() - 12, TB_WHITE, TB_DEFAULT);
         tb_present();
         tb_poll_event(&event);
     } else if (event.ch == 'd' || event.ch == 'D') { // Delete gate
