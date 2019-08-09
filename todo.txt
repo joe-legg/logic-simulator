@@ -2,8 +2,8 @@ Main todo:
 - [ ] presentation.
 - [ ] game.
 - [ ] wire connect to wire.
-- [ ] add I/O pins.
-- [ ] fix simulation order.
+- [x] add I/O pins.
+- [x] fix simulation order.
 - [x] fix wire placing direction.
 - [x] connect drawing system to simulator. Maybe redo it.
     - [x] build representation of the circuit form graphics.
