@@ -122,12 +122,16 @@ void sim_gate(const Gate *gate)
     switch (gate->type) {
     case AND:
         sim_and(gate);
+        break;
     case OR:
         sim_or(gate);
+        break;
     case NOT:
         sim_not(gate);
+        break;
     case XOR:
         sim_xor(gate);
+        break;
     case CUSTOM:
         break;
     }
@@ -150,16 +154,16 @@ void build_representation_from_graphics()
         for (int j = 0; j < wire_list_len; j++) {
             Wire *cur_wire = wire_list[j];
             // Connection to input
-            if (cur_wire->x1 == cur_gate->x && cur_wire->y1 <= cur_gate->y &&
-                cur_wire->y1 != cur_gate->y + 2) {
-
+            if (cur_wire->x1 == cur_gate->x && cur_wire->y1 >= cur_gate->y &&
+                cur_wire->y1 != cur_gate->y + 1 &&
+                cur_wire->y1 <= cur_gate->y + cur_gate->height) {
+                
                 cur_gate->inputs = realloc(cur_gate->inputs,
                         ++cur_gate->num_of_inputs * sizeof(Wire *));
                 cur_gate->inputs[cur_gate->num_of_inputs - 1] = cur_wire;
-            // Not gate
+            // Not gate input
             } else if (cur_wire->x1 == cur_gate->x &&
-                       cur_wire->y1 <= cur_gate->y &&
-                       cur_wire->y1 == cur_gate->y + 2 &&
+                       cur_wire->y1 == cur_gate->y + 1 &&
                        cur_gate->type == NOT) {
 
                 cur_gate->inputs = realloc(cur_gate->inputs,
@@ -167,8 +171,26 @@ void build_representation_from_graphics()
                 cur_gate->inputs[cur_gate->num_of_inputs - 1] = cur_wire;
             // Outputs
             } else if (cur_wire->x0 == cur_gate->x + cur_gate->width &&
-                       cur_wire->y0 == cur_gate->y + 2) {
+                       cur_wire->y0 == cur_gate->y + 1) {
                 cur_gate->output = cur_wire;
+            } else if ((cur_wire->x0 == cur_gate->x && // Swap wires around
+                       cur_wire->y0 >= cur_gate->y &&
+                       cur_wire->y0 != cur_gate->y + 1 &&
+                       cur_wire->y0 <= cur_gate->y + cur_gate->height) ||
+
+                       (cur_wire->x0 == cur_gate->x &&
+                       cur_wire->y0 == cur_gate->y + 1 &&
+                       cur_gate->type == NOT) ||
+
+                       (cur_wire->x0 == cur_gate->x + cur_gate->width &&
+                       cur_wire->y0 == cur_gate->y + 1)) {
+
+                int tmp_x = cur_wire->x0;
+                int tmp_y = cur_wire->y0;
+                cur_wire->y0 = cur_wire->y1;
+                cur_wire->x0 = cur_wire->x1;
+                cur_wire->x1 = tmp_x;
+                cur_wire->y1 = tmp_y;
             }
         }
     }
@@ -179,16 +201,18 @@ void build_representation_from_graphics()
 void draw_wire(const Wire *wire)
 {
     if (wire->state) {
+        tb_change_cell(wire->x0, wire->y0, '-', TB_BLUE|TB_BOLD, TB_DEFAULT);
+        tb_change_cell(wire->x1, wire->y1, '-', TB_BLUE|TB_BOLD, TB_DEFAULT);
+        draw_line(wire->x0, wire->y0 + 1, wire->x0, wire->y1, '-',
+                  TB_BLUE|TB_BOLD, TB_DEFAULT);
+        draw_line(wire->x0, wire->y1, wire->x1, wire->y1, '-', TB_BLUE|TB_BOLD,
+                  TB_DEFAULT);
+    } else {
         tb_change_cell(wire->x0, wire->y0, '-', TB_RED|TB_BOLD, TB_DEFAULT);
+        tb_change_cell(wire->x1, wire->y1, '-', TB_RED|TB_BOLD, TB_DEFAULT);
         draw_line(wire->x0, wire->y0 + 1, wire->x0, wire->y1, '-',
                   TB_RED|TB_BOLD, TB_DEFAULT);
         draw_line(wire->x0, wire->y1, wire->x1, wire->y1, '-', TB_RED|TB_BOLD,
-                  TB_DEFAULT);
-    } else {
-        tb_change_cell(wire->x0, wire->y0, '-', TB_BLUE|TB_BOLD, TB_DEFAULT);
-        draw_line(wire->x0, wire->y0 + 1, wire->x0, wire->y1, '-',
-                  TB_RED, TB_DEFAULT);
-        draw_line(wire->x0, wire->y1, wire->x1, wire->y1, '-', TB_RED,
                   TB_DEFAULT);
     }
 }
@@ -241,24 +265,24 @@ void draw()
 
 // User Input
 
-Gate *get_gate_under_cursor()
+int get_gate_under_cursor()
 {
     for (int i = 0; i < gate_list_len; i++)
         if (cursor_x >= gate_list[i]->x &&
             cursor_y >= gate_list[i]->y &&
             cursor_x < gate_list[i]->width + gate_list[i]->x &&
             cursor_y < gate_list[i]->height + gate_list[i]->y)
-            return gate_list[i];
-    return NULL;
+            return i;
+    return -1;
 }
 
-Wire *get_wire_under_cursor()
+int get_wire_under_cursor()
 {
     for (int i = 0; i < wire_list_len; i++)
         if ((cursor_x == wire_list[i]->x0 && cursor_y < wire_list[i]->y1) ||
             (cursor_x < wire_list[i]->x1 && cursor_y == wire_list[i]->y1))
-            return wire_list[i];
-    return NULL;
+            return i;
+    return -1;
 }
 
 void handle_cursor_input(const struct tb_event *event)
@@ -277,7 +301,7 @@ void handle_cursor_input(const struct tb_event *event)
 void move_component_at_cursor()
 {
     struct tb_event event;
-    Gate *gate_to_move = get_gate_under_cursor();
+    Gate *gate_to_move = gate_list[get_gate_under_cursor()];
 
     if (gate_to_move != NULL) { // If there is a gate under the cursor
         int gate_start_x = gate_to_move->x;
@@ -305,7 +329,7 @@ void move_component_at_cursor()
             tb_present();
         }
     } else {
-        Wire *wire_to_move = get_wire_under_cursor();
+        Wire *wire_to_move = wire_list[get_wire_under_cursor()];
 
         if (wire_to_move != NULL) {
             int wire_start_x0 = wire_to_move->x0;
@@ -424,17 +448,21 @@ void handle_input()
         tb_present();
         tb_poll_event(&event);
     } else if (event.ch == 'd' || event.ch == 'D') { // Delete gate
-        Gate *gate_to_delete = get_gate_under_cursor();
+        int gate_to_delete = get_gate_under_cursor();
 
-        if (gate_to_delete != NULL) {
+        if (gate_to_delete >= 0) {
+            free(gate_list[gate_to_delete]);
+            for(int i = gate_to_delete; i < gate_list_len; i++)
+                gate_list[i] = gate_list[i + 1];
             gate_list_len--;
-            free(gate_to_delete);
         } else {
-            Wire *wire_to_delete = get_wire_under_cursor();
+            int wire_to_delete = get_wire_under_cursor();
 
-            if (wire_to_delete != NULL) {
+            if (wire_to_delete >= 0) {
+                free(wire_list[wire_to_delete]);
+                for(int i = wire_to_delete; i < wire_list_len; i++)
+                    wire_list[i] = wire_list[i + 1];
                 wire_list_len--;
-                free(wire_to_delete);
             }
         }
     } else if (event.ch == 'm' || event.ch == 'M') { // Move component
