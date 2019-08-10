@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <string.h>
 #include "tgraphics.h"
 
 // Types
@@ -151,6 +152,54 @@ void sim_gate(const Gate *gate)
     case CUSTOM:
         break;
     }
+}
+
+void gate_to_verilog(char *input_str, const Gate *gate, int gate_id)
+{
+
+    switch (gate->type) {
+    case AND:
+        sprintf(input_str, "assign o%d = w%d & w%d;\n", gate_id, gate_id,
+                gate_id);
+        break;
+    case OR:
+        sprintf(input_str, "assign o%d = w%d | w%d;\n", gate_id, gate_id,
+                gate_id);
+        break;
+    case NOT:
+        sprintf(input_str, "assign o%d = ~w%d;\n", gate_id,
+                gate_id);
+        break;
+    case XOR:
+        sprintf(input_str, "assign o%d = w%d ^ w%d;\n", gate_id, gate_id,
+                gate_id);
+        break;
+    case INPUT:
+        // TODO
+        break;
+    case CUSTOM:
+        break;
+    }
+}
+
+void create_verilog()
+{
+    char *verilog = malloc(25 * sizeof(char)); // Temp string for output
+
+    tb_shutdown();
+    printf("module main;\n");
+    for (int i = 0; i < wire_list_len; i++) {
+        sprintf(verilog, "wire w%d;\n", i);
+        printf("%s", verilog);
+    }
+
+    for (int i = 0; i < gate_list_len; i++) {
+        gate_to_verilog(verilog, gate_list[i], i);
+        printf(verilog);
+    }
+    printf("endmodule\n");
+    tb_init();
+    free(verilog);
 }
 
 void update_circuit()
@@ -570,6 +619,8 @@ int main()
         build_representation_from_graphics();
         if (simulate_circuit) update_circuit();
     }
+
+    create_verilog();
 
     tb_shutdown();
 }
