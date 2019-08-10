@@ -7,6 +7,7 @@
 // Types
 
 typedef struct Wire {
+    int id;
     bool state;
 
     int x0, y0;
@@ -36,7 +37,8 @@ const char help[] = "\033[1;96mHelp\033[39;49m\n\n"
                     "w                   Place a new wire.\n"
                     "d                   Delete component.\n"
                     "m                   Move component under cursor.\n"
-                    "i                   Toggle an input's value.\n\n";
+                    "i                   Toggle an input's value.\n"
+                    "v                   Output verilog to stdout.\n\n";
 
 bool running = true;
 bool simulate_circuit = false;
@@ -48,6 +50,8 @@ int gate_list_len;
 
 Wire **wire_list;
 int wire_list_len;
+
+int last_wire_id;
 
 // Functions
 
@@ -85,6 +89,7 @@ Wire *new_wire(int x0, int y0, int x1, int y1)
     wire->state = 0;
     wire_list = realloc(wire_list, ++wire_list_len * sizeof(Wire *));
     wire_list[wire_list_len - 1] = wire;
+    wire->id = ++last_wire_id;
     return wire;
 }
 
@@ -154,25 +159,25 @@ void sim_gate(const Gate *gate)
     }
 }
 
-void gate_to_verilog(char *input_str, const Gate *gate, int gate_id)
+void gate_to_verilog(char *input_str, const Gate *gate, int output,
+                     int left_inp_id, int right_inp_id)
 {
 
     switch (gate->type) {
     case AND:
-        sprintf(input_str, "assign o%d = w%d & w%d;\n", gate_id, gate_id,
-                gate_id);
+        sprintf(input_str, "assign w%d = w%d & w%d;\n", output, left_inp_id,
+                right_inp_id);
         break;
     case OR:
-        sprintf(input_str, "assign o%d = w%d | w%d;\n", gate_id, gate_id,
-                gate_id);
+        sprintf(input_str, "assign w%d = w%d | w%d;\n", output, left_inp_id,
+                right_inp_id);
         break;
     case NOT:
-        sprintf(input_str, "assign o%d = ~w%d;\n", gate_id,
-                gate_id);
+        sprintf(input_str, "assign w%d = ~w%d;\n", output, left_inp_id);
         break;
     case XOR:
-        sprintf(input_str, "assign o%d = w%d ^ w%d;\n", gate_id, gate_id,
-                gate_id);
+        sprintf(input_str, "assign w%d = w%d ^ w%d;\n", output, left_inp_id,
+                right_inp_id);
         break;
     case INPUT:
         // TODO
@@ -188,13 +193,20 @@ void create_verilog()
 
     tb_shutdown();
     printf("module main;\n");
-    for (int i = 0; i < wire_list_len; i++) {
-        sprintf(verilog, "wire w%d;\n", i);
+    for (int i = 0; i < wire_list_len; i++) { // Declare wires
+        sprintf(verilog, "wire w%d;\n", wire_list[i]->id);
         printf("%s", verilog);
     }
 
-    for (int i = 0; i < gate_list_len; i++) {
-        gate_to_verilog(verilog, gate_list[i], i);
+    for (int i = 0; i < gate_list_len; i++) { // Ouput gates
+        if (gate_list[i] != NOT) {
+            gate_to_verilog(verilog, gate_list[i], gate_list[i]->output->id,
+                            gate_list[i]->inputs[0]->id,
+                            gate_list[i]->inputs[1]->id);
+        } else {
+            gate_to_verilog(verilog, gate_list[i], gate_list[i]->output->id,
+                            gate_list[i]->inputs[0]->id, 0);
+        }
         printf(verilog);
     }
     printf("endmodule\n");
@@ -562,9 +574,9 @@ void handle_input()
         if (event.ch == 'y' || event.ch == 'Y')
             running = false;
     } else if (event.ch == '?') { // Help
-        draw_line(0, tb_height() - 13, tb_width(), tb_height() - 13, '_',
+        draw_line(0, tb_height() - 14, tb_width(), tb_height() - 14, '_',
                   TB_WHITE, TB_DEFAULT);
-        draw_text(help, 0, tb_height() - 12, TB_WHITE, TB_DEFAULT);
+        draw_text(help, 0, tb_height() - 13, TB_WHITE, TB_DEFAULT);
         tb_present();
         tb_poll_event(&event);
     } else if (event.ch == 'd' || event.ch == 'D') { // Delete gate
@@ -597,6 +609,8 @@ void handle_input()
         Gate *gate_under_cursor = gate_list[get_gate_under_cursor()];
         if (gate_under_cursor->type == INPUT)
             gate_under_cursor->value = !gate_under_cursor->value;
+    } else if (event.ch == 'v' || event.ch == 'V') {
+        create_verilog();
     }
 }
 
@@ -620,7 +634,6 @@ int main()
         if (simulate_circuit) update_circuit();
     }
 
-    create_verilog();
 
     tb_shutdown();
 }
