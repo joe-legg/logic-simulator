@@ -180,7 +180,6 @@ void gate_to_verilog(char *input_str, const Gate *gate, int output,
                 right_inp_id);
         break;
     case INPUT:
-        // TODO
         break;
     case CUSTOM:
         break;
@@ -200,12 +199,18 @@ void create_verilog()
 
     for (int i = 0; i < gate_list_len; i++) { // Ouput gates
         if (gate_list[i] != NOT) {
-            gate_to_verilog(verilog, gate_list[i], gate_list[i]->output->id,
-                            gate_list[i]->inputs[0]->id,
-                            gate_list[i]->inputs[1]->id);
+            if (gate_list[i]->num_of_inputs == 2 &&
+                gate_list[i]->output != NULL)
+
+                gate_to_verilog(verilog, gate_list[i], gate_list[i]->output->id,
+                                gate_list[i]->inputs[0]->id,
+                                gate_list[i]->inputs[1]->id);
         } else {
-            gate_to_verilog(verilog, gate_list[i], gate_list[i]->output->id,
-                            gate_list[i]->inputs[0]->id, 0);
+            if (gate_list[i]->num_of_inputs == 1 &&
+                gate_list[i]->output != NULL)
+
+                gate_to_verilog(verilog, gate_list[i], gate_list[i]->output->id,
+                                gate_list[i]->inputs[0]->id, 0);
         }
         printf(verilog);
     }
@@ -611,6 +616,9 @@ void handle_input()
             gate_under_cursor->value = !gate_under_cursor->value;
     } else if (event.ch == 'v' || event.ch == 'V') {
         create_verilog();
+        draw_text("Verilog output.", 0, tb_height() - 1, TB_WHITE, TB_DEFAULT);
+        tb_present();
+        tb_poll_event(&event);
     }
 }
 
